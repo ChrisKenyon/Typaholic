@@ -34,7 +34,7 @@
 ;A List of Words (LoW) is one of:
 ; - empty '()
 ; - cons(Word LoW)
-(define list0 (cons '()))
+(define list0 '())
 (define list1 (list w1 w2 w3))
 (define list2 (list w4))
 
@@ -90,7 +90,7 @@
 (define (render-world w)
     (place-falling-words (world-falling-words w)
                          (place-inactive-words (world-inactive-words w)
-                                               (place-current-word (world-current-word w)))))
+                                               (place-current-word (world-current-word w) SCENE))))
 
 ; TODO check-expects 
 
@@ -106,19 +106,19 @@
 ;Place the falling words with the appropriate color
 (define (place-falling-words lofw scene)
     (cond
-    [(empty? low) scene]
-    [(cons? low) (place-scene (first low) ACTIVE-COLOR
-                              (place-falling-words (rest low)))]))
+    [(empty? lofw) scene]
+    [(cons? lofw) (place-word (first lofw) ACTIVE-COLOR
+                              (place-falling-words (rest lofw) scene))]))
 
 ; TODO check-expects 
 
 ; - place-inactive-words LoW -> Image
 ;Place the inactive words with the appropriate color
-(define (place-inactive-words lofw scene)
+(define (place-inactive-words loiw scene)
     (cond
-    [(empty? low) scene]
-    [(cons? low) (place-scene (first low) STUCK-COLOR
-                              (place-inactive-words (rest low)))]))
+    [(empty? loiw) scene]
+    [(cons? loiw) (place-word (first loiw) STUCK-COLOR
+                              (place-inactive-words (rest loiw) scene))]))
 
 ; TODO check-expects
 
