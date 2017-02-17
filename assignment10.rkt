@@ -12,20 +12,23 @@
 (define ACTIVE-COLOR "green")
 (define TYPING-COLOR "purple")
 (define STUCK-COLOR "red")
-(define SCENE-HEIGHT (* GRID-HEIGHT CELL-HEIGHT))
+(define TYPING-BOX-HEIGHT 20)
+(define SCENE-HEIGHT (+ TYPING-BOX-HEIGHT (* GRID-HEIGHT CELL-HEIGHT)))
 (define SCENE-WIDTH (* GRID-WIDTH CELL-WIDTH))
 (define SCENE (empty-scene SCENE-WIDTH SCENE-HEIGHT))
 (define FONT-SIZE CELL-HEIGHT)
+(define TYPING-X (/ SCENE-WIDTH 2))
+(define TYPING-Y (- SCENE-HEIGHT (/ TYPING-BOX-HEIGHT 2)))
 
 ;A Word is a (make-word String posn)
 (define-struct word [str position])
 ; where:
 ; - str is the String value of the word
 ; - position is the x and y position of the word on the grid
-(define w1 (make-word "hello" (make-posn 10 10)))
-(define w2 (make-word "friend" (make-posn 5 10)))
-(define w3 (make-word "chip" (make-posn 5 7)))
-(define w4 (make-word "bottom" (make-posn 25 40)))
+(define w1 (make-word "hello" (make-posn 0 0)))
+(define w2 (make-word "friend" (make-posn 15 10)))
+(define w3 (make-word "chip" (make-posn 25 20)))
+(define w4 (make-word "bottom" (make-posn 25 39)))
 
 #;
 (define (word-tmpl w)
@@ -94,14 +97,55 @@
 
 ; TODO check-expects 
 
+; List of Strings (LOS) is one of:
+; - empty
+; - cons(String LOS)
+(define los1 (explode "TEST"))
+#;
+(define (los-templ los)
+  (cond [(empty? los) ...]
+        [(cons? los) ... (first los) ... (los-templ (rest los))]))
+
+; grid-to-pix-x: Number -> Number 
+; Gives the pixel value of the desired column
+(define (grid-to-pix-x x)
+  (* (+ x 0.5) CELL-WIDTH))
+(check-expect (grid-to-pix-x 10) 157.5)
+(check-expect (grid-to-pix-x 0) 7.5)
+
+; grid-to-pix-y: Number -> Number 
+; Gives the pixel value of the desired row
+(define (grid-to-pix-y y)
+  (* (+ y 0.5) CELL-HEIGHT))
+(check-expect (grid-to-pix-y 10) 157.5)
+(check-expect (grid-to-pix-y 0) 7.5)
+
+; place-letters: LoS Posn Color Image -> Image
+; Places an exploded word on the grid
+(define (place-letters los x y c scene)
+  (cond [(empty? los) scene]
+        [(cons? los) (place-image (text (first los) FONT-SIZE c)
+                                  (grid-to-pix-x x) (grid-to-pix-y y)
+                                  (place-letters (rest los) (+ x 1) y c scene))]))
+(check-expect (place-letters los1 0 0 "red" SCENE)
+              (place-image (text "T" 15 "red") 7.5 7.5
+                           (place-image (text "E" 15 "red") 22.5 7.5
+                                        (place-image (text "S" 15 "red") 37.5 7.5
+                                                     (place-image (text "T" 15 "red") 52.5 7.5 SCENE)))))
+
 ; place-word: Word Color Image -> Image
 ; Places a single word on the scene with the appropriate color
 (define (place-word w c scene)
-  (place-image (text (word-str w) FONT-SIZE c)
+  (place-letters (explode (word-str w))
                (posn-x (word-position w))
                (posn-y (word-position w))
+               c
                scene))
-
+(check-expect (place-word w1 ACTIVE-COLOR SCENE)
+              (place-letters (list "h" "e" "l" "l" "o") 0 0 "green" SCENE))
+(check-expect (place-word w2 TYPING-COLOR SCENE)
+              (place-letters (list "f" "r" "i" "e" "n" "d") 15 10 "purple" SCENE))
+              
 ; -place-falling-words LoW -> Image
 ;Place the falling words with the appropriate color
 (define (place-falling-words lofw scene)
@@ -109,8 +153,13 @@
     [(empty? lofw) scene]
     [(cons? lofw) (place-word (first lofw) ACTIVE-COLOR
                               (place-falling-words (rest lofw) scene))]))
+(check-expect (place-falling-words list0 SCENE) SCENE)
+(check-expect (place-falling-words list1 SCENE)
+              (place-word w1 "green"
+                          (place-word w2 "green"
+                                      (place-word w3 "green"
+                                                  SCENE))))
 
-; TODO check-expects 
 
 ; - place-inactive-words LoW -> Image
 ;Place the inactive words with the appropriate color
@@ -119,13 +168,19 @@
     [(empty? loiw) scene]
     [(cons? loiw) (place-word (first loiw) STUCK-COLOR
                               (place-inactive-words (rest loiw) scene))]))
-
-; TODO check-expects
+(check-expect (place-inactive-words list0 SCENE) SCENE)
+(check-expect (place-inactive-words list1 SCENE)
+              (place-word w1 "red"
+                          (place-word w2 "red"
+                                      (place-word w3 "red"
+                                                  SCENE))))
+(check-expect (place-inactive-words list2 SCENE)
+              (place-word w4 "red" SCENE))
 
 ; - place-current-word String -> Image
 ;Place the current word with the appropriate color
 (define (place-current-word str scene)
-  (place-word (make-word str (make-posn 50 50)) TYPING-COLOR scene))
+  (place-image (text str FONT-SIZE TYPING-COLOR) TYPING-X TYPING-Y scene))
 
 ; TODO check-expects
 
