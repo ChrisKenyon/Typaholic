@@ -73,19 +73,76 @@
 
 ;----
 ;on tick:
+; - process : World -> World
+;        - Reconstructs the world assuring all updates are handled
+#;
+(define (process w)
+  (make-world
+     (generate-word-maybe
+      (lower-words (world-falling-words w))
+      (world-gen-word? w))
+     (get-inactives (world-inactive-words w))
+     (world-current-word w)
+     (not (world-gen-word? w)) ;flip the bool so we do/dont generate next tick
+     (update-time (world-score w))))
+; TODO Tests... ugh this one is gonna fucking suck
+
+; x-range-overlap? Number Number Number Number -> Boolean
+; Checks if x1 and len1 range has an overlap with x2 and len2 range
+(define (x-range-overlap? x1 len1 x2 len2)
+  (cond [(= x1 x2) true]
+        [(< x1 x2) (> (+ x1 len1) x2)]
+        [(> x1 x2) (< x1 (+ x2 len2))]))
+(check-expect (x-range-overlap? 0 10 0 1) true)
+(check-expect (x-range-overlap? 0 1 1 1) false)
+(check-expect (x-range-overlap? 0 2 1 1) true)
+(check-expect (x-range-overlap? 5 5 10 10) false)
+(check-expect (x-range-overlap? 5 5 9 10) true)
+(check-expect (x-range-overlap? 10 5 5 5) false)
+(check-expect (x-range-overlap? 10 5 5 10) true)
+               
+; - would-intersect? : Word Word -> Boolean
+; Checks if Word 1 would intersect with inactive Word 2 if moved down
+(define (would-intersect? w1 w2)
+  ;They will intersect if w2's y is the same as w1's y + 1,
+  ;and the x to x+len(string) range of w1 doesn't overlap with w2's
+  (and (= (posn-y (word-position w2)) (+ 1 (posn-y (word-position w1))))
+       (x-range-overlap? (posn-x (word-position w1)) (string-length (word-str w1))
+                         (posn-x (word-position w2)) (string-length (word-str w2)))))
+; TODO Tests
+
+
+; - make-inactive? : Word LoW (loiw) -> Boolean
+; Checks if word hits bottom or any inactive words
+(define (make-inactive? w low)
+  (cond [(empty? low)
+         ;if no intersect with words, return whether it's on the bottom or not
+         (= (- GRID-HEIGHT 1) (posn-y (word-position w)))]
+        [(cons? low)
+         ; else check if it intersects with the first word
+         (or (would-intersect? w (first low)) (make-inactive? w (rest low)))]))      
+; TODO tests
+
+  
+; - get-inactives : LoW LoW -> World
+;        -If inactive, add to list of inactive words
 ; - lower-words : World -> World
 ;        -Lower all of the falling worlds by one row
-; - make-inactive? : Word LoIW -> Boolean
-;        -Checks if word hits bottom or any inactive words
-; - move-to-inactive : World Word -> World
-;        -If inactive, remove from list of falling words
-;        -add to list of inactive words
-; - generate-word : ? -> Word
-;        -Create new word every other tick (update boolean of World)
+; - get-new-word : ? -> Word
+;        - Get a random word string
 ;        -Should generate a random x less than the (edge-length)
+; - generate-word-maybe : LoW Boolean -> LoW
+;        -Create new word every other tick (update boolean of World)
+
 ; - update-time: Number -> Number
 ;        -Keeping time of game
+(define (update-time tick)
+  (+ 1 tick))
+(check-expect (update-time 0) 1)
+(check-expect (update-time 100) 101)
 
+
+;----------------
 ;to draw:
 
 ; - render-world World -> Image
@@ -181,21 +238,24 @@
 ;Place the current word with the appropriate color
 (define (place-current-word str scene)
   (place-image (text str FONT-SIZE TYPING-COLOR) TYPING-X TYPING-Y scene))
+(check-expect (place-current-word "test" SCENE)
+              (place-image (text "test" FONT-SIZE TYPING-COLOR) TYPING-X TYPING-Y SCENE))
 
-; TODO check-expects
-
-
+; -------------------
 ;on key:
+
 ; - update-word World KeyEvent -> World
 ;       -if alphabetic, add-letter,
 ;       -if backspace, remove-letter,
-;       -if enter, delete-word,
+;       -if enter, delete-word, ( use remove function )
 ;       -if else, do nothing
 ; - add-letter String -> String
 ; - remove-letter String -> String
 ; - delete-word World String -> World
 ;     -check falling words for current word and remove
 
+
+; --------------
 ;stop when:
 ; - stop World -> Boolean
 ;    - check if any inactive word has posn-y of y=0 (top of grid)
