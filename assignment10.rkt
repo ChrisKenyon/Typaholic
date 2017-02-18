@@ -66,11 +66,6 @@
   ...(world-gen-word? w)...
   ...(world-score w))
 
-
-
-
-;Wishlist
-
 ;----
 ;on tick:
 ; - process : World -> World
@@ -179,7 +174,6 @@
     (place-falling-words (world-falling-words w)
                          (place-inactive-words (world-inactive-words w)
                                                (place-current-word (world-current-word w) SCENE))))
-
 ; TODO check-expects 
 
 ; List of Strings (LOS) is one of:
@@ -245,7 +239,6 @@
                                       (place-word w3 "green"
                                                   SCENE))))
 
-
 ; - place-inactive-words LoW -> Image
 ;Place the inactive words with the appropriate color
 (define (place-inactive-words loiw scene)
@@ -299,6 +292,8 @@
           ""
           (world-gen-word? w)
           (world-score w))]
+        ; TODO - extra credit - "up" and "down" keys will speed up/down tick rate, which will need to be put in World
+        ; Then big bang on-tick will need to be [on-tick process (world-tick world)]
         [else w]))
 ; TODO many testssss
 
@@ -309,7 +304,7 @@
     [(empty? low) '()]
     [(cons? low) (if (string=? str (word-str (first low)))
                      (remove-word str (rest low)) 
-                     (cons (first low) (remove-word (rest low))))])) ; remove all occurrences of the word? otherwise change this to just (cons (first low) (rest low))
+                     (cons (first low) (remove-word str (rest low))))])) ; remove all occurrences of the word? otherwise change this to just (cons (first low) (rest low))
 
 ; - remove-letter String -> String
 ; Removes the last letter from the string if there is one else returns empty string
