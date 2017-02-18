@@ -273,14 +273,50 @@
 ;on key:
 
 ; - update-word World KeyEvent -> World
-;       -if alphabetic, add-letter,
+;       -if alphabetic, add letter,
 ;       -if backspace, remove-letter,
 ;       -if enter, delete-word, ( use remove function )
 ;       -if else, do nothing
-; - add-letter String -> String
+(define (update-word w key)
+  (cond [(string-alphabetic? key)
+         (make-world
+          (world-falling-words w)
+          (world-inactive-words w)
+          (string-append (world-current-word w) key)
+          (world-gen-word? w)
+          (world-score w))]
+        [(key=? key "\b")
+         (make-world
+          (world-falling-words w)
+          (world-inactive-words w)
+          (remove-letter (world-current-word w))
+          (world-gen-word? w)
+          (world-score w))]
+        [(or (key=? key "\r") (key=? key 'numpad-enter))
+         (make-world
+          (remove-word (world-current-word w) (world-falling-words w))
+          (world-inactive-words w)
+          ""
+          (world-gen-word? w)
+          (world-score w))]
+        [else w]))
+; TODO many testssss
+
+;remove-word : String LoW -> LoW
+; Removes any word matching the string from the LoW
+(define (remove-word str low)
+  (cond
+    [(empty? low) '()]
+    [(cons? low) (if (string=? str (word-str (first low)))
+                     (remove-word str (rest low)) 
+                     (cons (first low) (remove-word (rest low))))])) ; remove all occurrences of the word? otherwise change this to just (cons (first low) (rest low))
+
 ; - remove-letter String -> String
-; - delete-word World String -> World
-;     -check falling words for current word and remove
+; Removes the last letter from the string if there is one else returns empty string
+(define (remove-letter s)
+  (if (= 0 (string-length s))
+      "" (substring s 0 (- (string-length s) 1))))
+; TODO Tests
 
 
 ; --------------
@@ -294,6 +330,6 @@
 (define (main world tick-rate)
   (big-bang world
             [on-tick process tick-rate]
-            [to-draw render-world]))
-    ;        [on-key ]
+            [to-draw render-world]
+            [on-key update-word]))
      ;       [stop-when ]))
