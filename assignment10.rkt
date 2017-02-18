@@ -75,13 +75,12 @@
 ;on tick:
 ; - process : World -> World
 ;        - Reconstructs the world assuring all updates are handled
-#;
 (define (process w)
   (make-world
      (generate-word-maybe
-      (lower-words (world-falling-words w))
+      (lower-words (world-falling-words w) (world-inactive-words w))
       (world-gen-word? w))
-     (get-inactives (world-inactive-words w))
+     (get-inactives (world-falling-words w) (world-inactive-words w))
      (world-current-word w)
      (not (world-gen-word? w)) ;flip the bool so we do/dont generate next tick
      (update-time (world-score w))))
@@ -124,15 +123,44 @@
 ; TODO tests
 
   
-; - get-inactives : LoW LoW -> World
-;        -If inactive, add to list of inactive words
-; - lower-words : World -> World
-;        -Lower all of the falling worlds by one row
-; - get-new-word : ? -> Word
+; - get-inactives : LoW -> LoW
+; If inactive, add to list of inactive words
+(define (get-inactives lofw loiw)
+  (cond
+    [(empty? lofw) loiw]
+    [(cons? lofw) (if (make-inactive? (first lofw) loiw)
+                     (cons (first lofw) (get-inactives (rest lofw) loiw))
+                     (get-inactives (rest lofw) loiw))]))                     
+; TODO tests
+
+;lower-word : Word -> Word
+; Increases the y value of the word by 1
+(define (lower-word w)
+  (make-word (word-str w)
+             (make-posn
+              (posn-x (word-position w))
+              (+ 1(posn-y (word-position w))))))
+; TODO tests
+
+; - lower-words : LoW LoW -> LoW
+; Lower all of the falling worlds by one row, takes lofw and loiw
+(define (lower-words lofw loiw)
+  (cond
+    [(empty? lofw) '()]
+    [(cons? lofw) (if (make-inactive? (first lofw) loiw)
+                     (lower-words (rest lofw) loiw)
+                     (cons (lower-word (first lofw))
+                           (lower-words (rest lofw) loiw)))]))
+; TODO tests
+
+
+; - get-new-word : - -> Word
 ;        - Get a random word string
 ;        -Should generate a random x less than the (edge-length)
 ; - generate-word-maybe : LoW Boolean -> LoW
-;        -Create new word every other tick (update boolean of World)
+; Create new word every other tick (update boolean of World)
+(define (generate-word-maybe low gen?)
+  (if gen? low low)) ; TODO cons with (gen-new-word)
 
 ; - update-time: Number -> Number
 ;        -Keeping time of game
@@ -263,9 +291,9 @@
 ;    -outputs score in last-picture
 
 
-;(define (main tick-rate)
- ; (big-bang type-world
-  ;          [on-tick ]
-   ;         [to-draw ]
+(define (main world tick-rate)
+  (big-bang world
+            [on-tick process tick-rate]
+            [to-draw render-world]))
     ;        [on-key ]
      ;       [stop-when ]))
