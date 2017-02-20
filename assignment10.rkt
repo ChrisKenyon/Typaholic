@@ -1,6 +1,7 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-beginner-reader.ss" "lang")((modname assignment10) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
+
 (require 2htdp/image)
 (require 2htdp/universe)
 
@@ -97,6 +98,10 @@
                
 ; - would-intersect? : Word Word -> Boolean
 ; Checks if Word 1 would intersect with inactive Word 2 if moved down
+
+(check-expect (would-intersect? w1 w2) #f)
+(check-expect (would-intersect? w1 w2) #f)
+
 (define (would-intersect? w1 w2)
   ;They will intersect if w2's y is the same as w1's y + 1,
   ;and the x to x+len(string) range of w1 doesn't overlap with w2's
@@ -108,6 +113,10 @@
 
 ; - make-inactive? : Word LoW (loiw) -> Boolean
 ; Checks if word hits bottom or any inactive words
+(check-expect (make-inactive? w1 list0) #f)
+(check-expect (make-inactive? w4 list0) #t)
+(check-expect (make-inactive? (make-word "Test" (make-posn 11 19)) list1) #f)
+
 (define (make-inactive? w low)
   (cond [(empty? low)
          ;if no intersect with words, return whether it's on the bottom or not
@@ -115,30 +124,42 @@
         [(cons? low)
          ; else check if it intersects with the first word
          (or (would-intersect? w (first low)) (make-inactive? w (rest low)))]))      
-; TODO tests
 
   
 ; - get-inactives : LoW -> LoW
 ; If inactive, add to list of inactive words
+;(check-expect (get-inactives list0 list2) list2)
+;(check-expect (get-inactives list1 list2) )
+
 (define (get-inactives lofw loiw)
   (cond
     [(empty? lofw) loiw]
     [(cons? lofw) (if (make-inactive? (first lofw) loiw)
                      (cons (first lofw) (get-inactives (rest lofw) loiw))
                      (get-inactives (rest lofw) loiw))]))                     
-; TODO tests
 
 ;lower-word : Word -> Word
 ; Increases the y value of the word by 1
+(check-expect (lower-word (make-word "Test1" (make-posn 10 10)))
+              (make-word "Test1" (make-posn 10 11)))
+(check-expect (lower-word (make-word "Test2" (make-posn 0 0)))
+              (make-word "Test2" (make-posn 0 1)))
+
 (define (lower-word w)
   (make-word (word-str w)
              (make-posn
               (posn-x (word-position w))
               (+ 1(posn-y (word-position w))))))
-; TODO tests
+
 
 ; - lower-words : LoW LoW -> LoW
 ; Lower all of the falling worlds by one row, takes lofw and loiw
+(check-expect (lower-words list0 list2) '())
+(check-expect (lower-words list1 list2) (list (make-word "hello" (make-posn 0 1))
+                                              (make-word "friend" (make-posn 15 11))
+                                              (make-word "chip" (make-posn 25 21))))
+
+
 (define (lower-words lofw loiw)
   (cond
     [(empty? lofw) '()]
@@ -170,11 +191,14 @@
 
 ; - render-world World -> Image
 ;Render the 3 parts of the world
+(check-expect (render-world world1)
+              (place-falling-words (world-falling-words world1)
+                                   (place-inactive-words (world-inactive-words world1)
+                                                         (place-current-word (world-current-word world1) SCENE))))
 (define (render-world w)
     (place-falling-words (world-falling-words w)
                          (place-inactive-words (world-inactive-words w)
                                                (place-current-word (world-current-word w) SCENE))))
-; TODO check-expects 
 
 ; List of Strings (LOS) is one of:
 ; - empty
@@ -299,25 +323,65 @@
 
 ;remove-word : String LoW -> LoW
 ; Removes any word matching the string from the LoW
+(check-expect (remove-word (word-str w1) list1) (list w2 w3))
+(check-expect (remove-word (word-str w2) list1) (list w1 w3))
+(check-expect (remove-word (word-str w1) list0) '())
+
 (define (remove-word str low)
   (cond
     [(empty? low) '()]
     [(cons? low) (if (string=? str (word-str (first low)))
                      (remove-word str (rest low)) 
-                     (cons (first low) (remove-word str (rest low))))])) ; remove all occurrences of the word? otherwise change this to just (cons (first low) (rest low))
+                     (cons (first low) (remove-word str (rest low))))]))
+; remove all occurrences of the word? otherwise change this to just (cons (first low) (rest low))
 
 ; - remove-letter String -> String
 ; Removes the last letter from the string if there is one else returns empty string
+
+(check-expect (remove-letter "Test") "Tes")
+(check-expect (remove-letter "") "")
+
 (define (remove-letter s)
   (if (= 0 (string-length s))
       "" (substring s 0 (- (string-length s) 1))))
-; TODO Tests
 
 
 ; --------------
 ;stop when:
 ; - stop World -> Boolean
-;    - check if any inactive word has posn-y of y=0 (top of grid)
+;    - determines when to stop game and words have reached limit of grid 
+(check-expect (game-over (make-world (list (make-word "Word1" (make-posn 30 20)))
+                                     (list (make-word "EndWord" (make-posn 11 0))
+                                           (make-word "EndWord1" (make-posn 9 12)))
+                                     "test"
+                                     false
+                                     1)) #t)
+(check-expect (game-over (make-world (list (make-word "Word1" (make-posn 30 20)))
+                                     (list (make-word "EndWord" (make-posn 10 12)))
+                                     "test"
+                                     false
+                                     1)) #f)
+
+(define (game-over w)
+  (check-limit (world-inactive-words w)))
+
+;check-limit:
+; - LoW -> Boolean
+;     - checks if any inactive word has posn-y of y=0 (top of grid)
+(check-expect (check-limit (list (make-word "EndWord" (make-posn 10 0))
+                                 (make-word "EndWord1" (make-posn 9 12)))) #t)
+(check-expect (check-limit (list (make-word "EndWord" (make-posn 14 12))
+                                 (make-word "EndWord1" (make-posn 9 12)))) #f)
+(check-expect (check-limit (list (make-word "EndWord" (make-posn 5 12))
+                                 (make-word "EndWord1" (make-posn 12 0)))) #t)
+
+(define (check-limit low)
+ (cond
+    [(empty? low) #f]
+    [(cons? low) (or (= 0  (posn-y (word-position (first low))))
+                 (check-limit (rest low)))]))
+                                                         
+
 ; - generate-score World Number -> Number
 ;    -outputs score in last-picture
 
@@ -326,5 +390,5 @@
   (big-bang world
             [on-tick process tick-rate]
             [to-draw render-world]
-            [on-key update-word]))
-     ;       [stop-when ]))
+            [on-key update-word]
+            [stop-when game-over]))
