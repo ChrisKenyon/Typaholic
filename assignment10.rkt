@@ -2,6 +2,7 @@
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-beginner-reader.ss" "lang")((modname assignment10) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
 
+
 (require 2htdp/image)
 (require 2htdp/universe)
 
@@ -41,6 +42,23 @@
 (define list0 '())
 (define list1 (list w1 w2 w3))
 (define list2 (list w4))
+
+;List of words used for generate-word function
+(define DICTIONARY (list (make-word "random" (make-posn 0 0))
+                    (make-word "spaghetti" (make-posn 0 0))
+                    (make-word "generate" (make-posn 0 0))
+                    (make-word "affordable" (make-posn 0 0))
+                    (make-word "dairy" (make-posn 0 0))
+                    (make-word "lamppost" (make-posn 0 0))
+                    (make-word "endurance" (make-posn 0 0))
+                    (make-word "koala" (make-posn 0 0))
+                    (make-word "riesling" (make-posn 0 0))
+                    (make-word "computer" (make-posn 0 0))
+                    (make-word "never" (make-posn 0 0))
+                    (make-word "diabolical" (make-posn 0 0))
+                    (make-word "giraffe" (make-posn 0 0))))
+                    
+
 
 #;
 (define (low-tmpl low)
@@ -108,8 +126,6 @@
   (and (= (posn-y (word-position w2)) (+ 1 (posn-y (word-position w1))))
        (x-range-overlap? (posn-x (word-position w1)) (string-length (word-str w1))
                          (posn-x (word-position w2)) (string-length (word-str w2)))))
-; TODO Tests
-
 
 ; - make-inactive? : Word LoW (loiw) -> Boolean
 ; Checks if word hits bottom or any inactive words
@@ -169,14 +185,34 @@
                            (lower-words (rest lofw) loiw)))]))
 ; TODO tests
 
+;get-word-at-n : LoW Number -> Word
+;   - given a dictionary of words and an index, returns the word at that index
+(define (get-word-at-n low n)
+  (cond
+    [(empty? DICTIONARY) ""]
+    [(cons? DICTIONARY) (if (= n 0)
+                            (first DICTIONARY)
+                            (get-word-at-n (rest DICTIONARY) (- n 1)))]))
 
-; - get-new-word : - -> Word
+;get-random-word : LoW -> N
+(define (get-random-word DICTIONARY)
+  (get-word-at-n DICTIONARY (random (length DICTIONARY))))
+
+; - get-new-word : Word -> Word
 ;        - Get a random word string
 ;        -Should generate a random x less than the (edge-length)
+(define (get-new-word DICTIONARY)
+    (make-word (word-str (get-random-word DICTIONARY))
+               (make-posn (random (- GRID-WIDTH (string-length (word-str (get-random-word DICTIONARY)))))
+                          0)))
+
 ; - generate-word-maybe : LoW Boolean -> LoW
 ; Create new word every other tick (update boolean of World)
 (define (generate-word-maybe low gen?)
-  (if gen? low low)) ; TODO cons with (gen-new-word)
+  (if gen?
+      (list (get-new-word low) low)
+      low))
+      ; TODO cons with (gen-new-word)
 
 ; - update-time: Number -> Number
 ;        -Keeping time of game
@@ -184,7 +220,6 @@
   (+ 1 tick))
 (check-expect (update-time 0) 1)
 (check-expect (update-time 100) 101)
-
 
 ;----------------
 ;to draw:
@@ -382,8 +417,15 @@
                  (check-limit (rest low)))]))
                                                          
 
-; - generate-score World Number -> Number
+; - generate-score Num -> Num
 ;    -outputs score in last-picture
+;(define (generate-score score)
+  ;(* (/ 1 0.5) score))
+
+;last scene:
+;(define LAST-SCENE (place-image (text (string-append "Your score is: "
+ ;                                     (generate-score (world-score world)) FONT-SIZE c)
+  ;                                    (grid-to-pix-x x) (grid-to-pix-y y) SCENE)))
 
 
 (define (main world tick-rate)
