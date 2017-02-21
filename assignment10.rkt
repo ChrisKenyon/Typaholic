@@ -97,7 +97,8 @@
 (check-expect (world? (process (make-world list1 list2 "" false 1 10 10))) #t)
 (check-expect (world? (process (make-world list0 list2 "" true 100 10 10))) #t)
 (check-expect (world? (process (make-world list0 list0 "" false 30 0 10))) #t) 
-; bool gen-word? is the one of the two things directly affected by this function and not a helper, in two if cases
+; bool gen-word? is the one of the two things directly affected
+; by this function and not a helper, in two if cases
 (check-expect (world-gen-word? (process (make-world list0 list0 "" false 30 10 10))) #t)
 (check-expect (world-gen-word? (process (make-world list0 list0 "" false 30 9 10))) #f)
 ; The other is the extra credit tick value. This makes the tick rate (tr) in main
@@ -172,12 +173,14 @@
 ; - get-inactives : LoW -> LoW
 ; If inactive, add to list of inactive words
 (check-expect (get-inactives list0 list2) list2)
-(check-expect (get-inactives list1 list2) (cons (make-word "bottom" (make-posn 25 39)) empty))
+(check-expect (get-inactives list1 list2) 
+              (cons (make-word "bottom" (make-posn 25 39)) empty))
 (check-expect (get-inactives (list (make-word "hello" (make-posn 12 32))
                                    (make-word "hello1" (make-posn 0 39))
                                    (make-word"hello2" (make-posn 12 0))) 
                               list2)
-              (cons (make-word "hello1" (make-posn 0 39)) (cons (make-word "bottom" (make-posn 25 39)) empty)))
+              (cons (make-word "hello1" (make-posn 0 39)) 
+                    (cons(make-word "bottom" (make-posn 25 39)) empty)))
 
 (define (get-inactives lofw loiw)
   (cond
@@ -283,11 +286,13 @@
 (check-expect (render-world world1)
               (place-falling-words (world-falling-words world1)
                                    (place-inactive-words (world-inactive-words world1)
-                                                         (place-current-word (world-current-word world1) SCENE))))
+                                                         (place-current-word 
+                                                          (world-current-word world1) SCENE))))
 (define (render-world w)
     (place-falling-words (world-falling-words w)
                          (place-inactive-words (world-inactive-words w)
-                                               (place-current-word (world-current-word w) SCENE))))
+                                               (place-current-word 
+                                                (world-current-word w) SCENE))))
 
 ; List of Strings (LOS) is one of:
 ; - empty
@@ -319,7 +324,8 @@
               (place-image (text "T" 15 "red") 7.5 7.5
                            (place-image (text "E" 15 "red") 22.5 7.5
                                         (place-image (text "S" 15 "red") 37.5 7.5
-                                                     (place-image (text "T" 15 "red") 52.5 7.5 SCENE)))))
+                                                     (place-image (text "T" 15 "red")
+                                                                  52.5 7.5 SCENE)))))
 
 (define (place-letters los x y c scene)
   (cond [(empty? los) scene]
@@ -435,6 +441,7 @@
           (world-score w)
           (world-tick w)
           (world-lim-tick w))]
+        ; This is not an infinite increase!
         [(key=? key "down")
           (make-world
           (world-falling-words w)
@@ -444,6 +451,7 @@
           (world-score w)
           (world-tick w)
           (max 2 (- (world-lim-tick w) 1)))]
+        ; This is an infinite increase!
         [(key=? key "up")
           (make-world
           (world-falling-words w)
@@ -467,7 +475,7 @@
     [(cons? low) (if (string=? str (word-str (first low)))
                      (remove-word str (rest low)) 
                      (cons (first low) (remove-word str (rest low))))]))
-; remove all occurrences of the word? otherwise change this to just (cons (first low) (rest low))
+
 
 ; - remove-letter String -> String
 ; Removes the last letter from the string if there is one else returns empty string
@@ -518,16 +526,18 @@
 ;     - outputs the score when the game has ended
 (check-expect (last-scene (make-world list1 list2 "" false 100 0 10))
               (place-image (text (string-append "Your score is: "
-                                                (number->string 100)) FONT-SIZE TYPING-COLOR)
+                                                (number->string 100))
+                                 FONT-SIZE TYPING-COLOR)
                            (- SCENE-WIDTH (/ SCENE-WIDTH 2))
                            (- SCENE-HEIGHT (/ SCENE-HEIGHT 2))
                            SCENE)) 
 (define (last-scene w)
   (place-image (text (string-append "Your score is: "
-                                      (number->string (round (world-score w)))) FONT-SIZE TYPING-COLOR)
-                                      (- SCENE-WIDTH (/ SCENE-WIDTH 2))
-                                      (- SCENE-HEIGHT (/ SCENE-HEIGHT 2))
-                                      SCENE))
+                                      (number->string (round (world-score w))))
+                     FONT-SIZE TYPING-COLOR)
+               (- SCENE-WIDTH (/ SCENE-WIDTH 2))
+               (- SCENE-HEIGHT (/ SCENE-HEIGHT 2))
+               SCENE))
 
 ; play-game: World Number -> World or Image (last-scene is image)
 ; Runs the Typaholic! game. Inputted tick rate will be reflected every
@@ -549,5 +559,5 @@
 ; The score is not variable by the tick rate, only by the frequency defined by the
 ; world-tick and world-lim-tick, so to maintain consistency in the score, the same
 ; number should be used here. It's possible to make a really slow number here, and then
-; hit "down" to the max and get a crazy good score, so don't cheat that way.
+; hit "down" to the max and get a crazy good score on slow moving words, so don't cheat that way!
 (main 0.5)
