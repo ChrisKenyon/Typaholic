@@ -2,8 +2,6 @@
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-beginner-reader.ss" "lang")((modname assignment10) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ())))
 
-
-
 (require 2htdp/image)
 (require 2htdp/universe)
 
@@ -90,6 +88,13 @@
 ;on tick:
 ; - process : World -> World
 ;        - Reconstructs the world assuring all updates are handled
+
+;Testing & randomness- verifying that process returns a world with various input variables
+(check-expect (world? (process (make-world list1 list2 "" false 1))) #t)
+(check-expect (world? (process (make-world list0 list2 "" true 100))) #t)
+(check-expect (world? (process (make-world list0 list0 "" false 30))) #t)
+              
+                        
 (define (process w)
   (make-world
      (generate-word-maybe
@@ -99,7 +104,7 @@
      (world-current-word w)
      (not (world-gen-word? w)) ;flip the bool so we do/dont generate next tick
      (update-time (world-score w))))
-; TODO Tests... ugh this one is gonna fucking suck
+
 
 ; x-range-overlap? Number Number Number Number -> Boolean
 ; Checks if x1 and len1 range has an overlap with x2 and len2 range
@@ -117,7 +122,6 @@
                
 ; - would-intersect? : Word Word -> Boolean
 ; Checks if Word 1 would intersect with inactive Word 2 if moved down
-
 (check-expect (would-intersect? w1 w2) #f)
 (check-expect (would-intersect? w1 w2) #f)
 
@@ -145,8 +149,13 @@
   
 ; - get-inactives : LoW -> LoW
 ; If inactive, add to list of inactive words
-;(check-expect (get-inactives list0 list2) list2)
-;(check-expect (get-inactives list1 list2) )
+(check-expect (get-inactives list0 list2) list2)
+(check-expect (get-inactives list1 list2) (cons (make-word "bottom" (make-posn 25 39)) '()))
+(check-expect (get-inactives (list (make-word "hello" (make-posn 12 32))
+                                   (make-word "hello1" (make-posn 0 39))
+                                   (make-word"hello2" (make-posn 12 0))) 
+                              list2)
+              (cons (make-word "hello1" (make-posn 0 39)) (cons (make-word "bottom" (make-posn 25 39)) '())))
 
 (define (get-inactives lofw loiw)
   (cond
@@ -168,13 +177,19 @@
               (posn-x (word-position w))
               (+ 1(posn-y (word-position w))))))
 
-
+ 
 ; - lower-words : LoW LoW -> LoW
 ; Lower all of the falling worlds by one row, takes lofw and loiw
 (check-expect (lower-words list0 list2) empty)
 (check-expect (lower-words list1 list2) (list (make-word "hello" (make-posn 0 1))
                                               (make-word "friend" (make-posn 15 11))
                                               (make-word "chip" (make-posn 25 21))))
+(check-expect (lower-words (list (make-word "hello1" (make-posn 10 10))
+                                 (make-word "hello2" (make-posn 15 39))
+                                 (make-word "hello3" (make-posn 10 35)))
+                           list2) (cons (make-word "hello1" (make-posn 10 11))
+                                        (cons (make-word "hello3" (make-posn 10 36)) '())))
+                                 
 
 
 (define (lower-words lofw loiw)
@@ -184,47 +199,55 @@
                      (lower-words (rest lofw) loiw)
                      (cons (lower-word (first lofw))
                            (lower-words (rest lofw) loiw)))]))
-; TODO check-expects
+
 
 ;get-word-at-n : LoS Number -> String
 ;   - given a dictionary of words and an index, returns the word at that index
+(check-expect (get-word-at-n list0 0) "")
+(check-expect (get-word-at-n list1 2) w3)
+
 (define (get-word-at-n los n)
   (cond
     [(empty? los) ""]
     [(cons? los) (if (= n 0)
                      (first los)
                      (get-word-at-n (rest los) (- n 1)))]))
-; TODO check-expects
   
 ; - get-new-word : LoS -> Word
 ;        - Get a random word string
+(check-expect (word? (get-new-word DICTIONARY)) #t)
+
 (define (get-new-word los)
     (make-word (get-word-at-n los (random (length los)))
                (make-posn 0 0)))
-; TODO check-expects
 
 ; randomize-posx : Word -> Word
 ; Takes a new word and updates its x coordinate
 ;        -Should generate a random x less than the (edge-length)
+(check-expect (word? (randomize-posx w1)) #t)
+
 (define (randomize-posx w)
   (make-word (word-str w)
              (make-posn (random (- GRID-WIDTH (string-length (word-str w)))) 0)))
-; TODO check-expects
 
 ; - generate-word-maybe : LoW Boolean -> LoW
 ; Create new word every other tick (update boolean of World)
+(check-expect (cons? (generate-word-maybe list1 false))#t)
+(check-expect (cons? (generate-word-maybe list1 true))#t)
+(check-expect (cons? (generate-word-maybe list0 false))#f)
+
 (define (generate-word-maybe low gen?)
   (if gen?
       (cons (randomize-posx (get-new-word DICTIONARY)) low)
       low))
-; TODO check-expects
 
 ; - update-time: Number -> Number
 ;        -Keeping time of game
-(define (update-time tick)
-  (+ 1 tick))
 (check-expect (update-time 0) 1)
 (check-expect (update-time 100) 101)
+
+(define (update-time tick)
+  (+ 1 tick))
 
 ;----------------
 ;to draw:
@@ -251,43 +274,46 @@
 
 ; grid-to-pix-x: Number -> Number 
 ; Gives the pixel value of the desired column
-(define (grid-to-pix-x x)
-  (* (+ x 0.5) CELL-WIDTH))
 (check-expect (grid-to-pix-x 10) 157.5)
 (check-expect (grid-to-pix-x 0) 7.5)
 
+(define (grid-to-pix-x x)
+  (* (+ x 0.5) CELL-WIDTH))
+
 ; grid-to-pix-y: Number -> Number 
 ; Gives the pixel value of the desired row
-(define (grid-to-pix-y y)
-  (* (+ y 0.5) CELL-HEIGHT))
 (check-expect (grid-to-pix-y 10) 157.5)
 (check-expect (grid-to-pix-y 0) 7.5)
+(define (grid-to-pix-y y)
+  (* (+ y 0.5) CELL-HEIGHT))
 
 ; place-letters: LoS Posn Color Image -> Image
 ; Places an exploded word on the grid
-(define (place-letters los x y c scene)
-  (cond [(empty? los) scene]
-        [(cons? los) (place-image (text (first los) FONT-SIZE c)
-                                  (grid-to-pix-x x) (grid-to-pix-y y)
-                                  (place-letters (rest los) (+ x 1) y c scene))]))
 (check-expect (place-letters los1 0 0 "red" SCENE)
               (place-image (text "T" 15 "red") 7.5 7.5
                            (place-image (text "E" 15 "red") 22.5 7.5
                                         (place-image (text "S" 15 "red") 37.5 7.5
                                                      (place-image (text "T" 15 "red") 52.5 7.5 SCENE)))))
 
+(define (place-letters los x y c scene)
+  (cond [(empty? los) scene]
+        [(cons? los) (place-image (text (first los) FONT-SIZE c)
+                                  (grid-to-pix-x x) (grid-to-pix-y y)
+                                  (place-letters (rest los) (+ x 1) y c scene))]))
+
 ; place-word: Word Color Image -> Image
 ; Places a single word on the scene with the appropriate color
+(check-expect (place-word w1 ACTIVE-COLOR SCENE)
+              (place-letters (list "h" "e" "l" "l" "o") 0 0 "green" SCENE))
+(check-expect (place-word w2 TYPING-COLOR SCENE)
+              (place-letters (list "f" "r" "i" "e" "n" "d") 15 10 "purple" SCENE))
+
 (define (place-word w c scene)
   (place-letters (explode (word-str w))
                (posn-x (word-position w))
                (posn-y (word-position w))
                c
                scene))
-(check-expect (place-word w1 ACTIVE-COLOR SCENE)
-              (place-letters (list "h" "e" "l" "l" "o") 0 0 "green" SCENE))
-(check-expect (place-word w2 TYPING-COLOR SCENE)
-              (place-letters (list "f" "r" "i" "e" "n" "d") 15 10 "purple" SCENE))
               
 ; -place-falling-words LoW -> Image
 ;Place the falling words with the appropriate color
@@ -305,11 +331,6 @@
 
 ; - place-inactive-words LoW -> Image
 ;Place the inactive words with the appropriate color
-(define (place-inactive-words loiw scene)
-    (cond
-    [(empty? loiw) scene]
-    [(cons? loiw) (place-word (first loiw) STUCK-COLOR
-                              (place-inactive-words (rest loiw) scene))]))
 (check-expect (place-inactive-words list0 SCENE) SCENE)
 (check-expect (place-inactive-words list1 SCENE)
               (place-word w1 "red"
@@ -319,12 +340,19 @@
 (check-expect (place-inactive-words list2 SCENE)
               (place-word w4 "red" SCENE))
 
+(define (place-inactive-words loiw scene)
+    (cond
+    [(empty? loiw) scene]
+    [(cons? loiw) (place-word (first loiw) STUCK-COLOR
+                              (place-inactive-words (rest loiw) scene))]))
+
 ; - place-current-word String -> Image
 ;Place the current word with the appropriate color
-(define (place-current-word str scene)
-  (place-image (text str FONT-SIZE TYPING-COLOR) TYPING-X TYPING-Y scene))
 (check-expect (place-current-word "test" SCENE)
               (place-image (text "test" FONT-SIZE TYPING-COLOR) TYPING-X TYPING-Y SCENE))
+
+(define (place-current-word str scene)
+  (place-image (text str FONT-SIZE TYPING-COLOR) TYPING-X TYPING-Y scene))
 
 ; -------------------
 ;on key:
@@ -334,6 +362,19 @@
 ;       -if backspace, remove-letter,
 ;       -if enter, delete-word, ( use remove function )
 ;       -if else, do nothing
+              ;alphabetic
+(check-expect (update-word (make-world list1 list2 "" false 10) "a")
+              (make-world list1 list2 "a" false 10))
+              ;backspace
+(check-expect (update-word (make-world list1 list2 "test" false 10) "\b")
+              (make-world list1 list2 "tes" false 10))
+              ;enter
+;(check-expect (update-word (make-world list1 list2 "friend" false 10) "\r")
+ ;             (make-world (cons w1 (cons w3 '())) (cons w4 '()) "" false 10))
+              ;else
+;(check-expect (update-word (make-world list1 list2 "" false 10) "\t")
+ ;             (make-world list1 list2 "" false 10))
+
 (define (update-word w key)
   (cond [(string-alphabetic? key)
          (make-world
