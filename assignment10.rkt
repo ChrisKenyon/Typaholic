@@ -20,7 +20,23 @@
 (define FONT-SIZE CELL-HEIGHT)
 (define TYPING-X (/ SCENE-WIDTH 2))
 (define TYPING-Y (- SCENE-HEIGHT (/ TYPING-BOX-HEIGHT 2)))
+(define LIM-TICK-DEFAULT 20)
 
+;List of words used for generate-word function
+(define DICTIONARY (list "random"
+                         "spaghetti" 
+                         "generate" 
+                         "affordable"
+                         "dairy"
+                         "lamppost"
+                         "endurance"
+                         "koala"
+                         "riesling"
+                         "computer"
+                         "never"
+                         "diabolical"
+                         "giraffe" ))
+                    
 ;A Word is a (make-word String posn)
 (define-struct word [str position])
 ; where:
@@ -42,23 +58,6 @@
 (define list1 (list w1 w2 w3))
 (define list2 (list w4))
 
-;List of words used for generate-word function
-(define DICTIONARY (list "random"
-                         "spaghetti" 
-                         "generate" 
-                         "affordable"
-                         "dairy"
-                         "lamppost"
-                         "endurance"
-                         "koala"
-                         "riesling"
-                         "computer"
-                         "never"
-                         "diabolical"
-                         "giraffe" ))
-                    
-
-
 #;
 (define (low-tmpl low)
   (cond
@@ -67,14 +66,16 @@
 
 ; A world (w) is one of:
 ; - (make-world LoW LoW String Boolean Number)
-(define-struct world [falling-words inactive-words current-word gen-word? score])
+(define-struct world [falling-words inactive-words current-word gen-word? score tick lim-tick])
 ; A world represents
 ; - falling words represents the list of falling words
 ; - inactive-words represents the list of words that have fallen and are no longer falling.
 ; - current-word is what the user has typed
 ; - gen-word? is the boolean that tells whether to generate a new word
-; - score is the number of ticks that have passed
-(define world1 (make-world list1 list2 "" false 1))
+; - score is the number of process ticks that have passed
+; - tick is to manage the variable tick rate (EXTRA CREDIT)
+; - lim-tick is the tick number to process the world on (EXTRA CREDIT)
+(define world1 (make-world list1 list2 "" false 1 0 LIM-TICK-DEFAULT))
 
 #;
 (define (world-tmpl w)
@@ -82,7 +83,9 @@
   ...(world-inactive-words w)...
   ...(world-current-word w)...
   ...(world-gen-word? w)...
-  ...(world-score w))
+  ...(world-score w)...
+  ...(world-tick w)...
+  ...(world-lim-tick w)...)
 
 ;----
 ;on tick:
@@ -90,20 +93,38 @@
 ;        - Reconstructs the world assuring all updates are handled
 
 ;Testing & randomness- verifying that process returns a world with various input variables
-(check-expect (world? (process (make-world list1 list2 "" false 1))) #t)
-(check-expect (world? (process (make-world list0 list2 "" true 100))) #t)
-(check-expect (world? (process (make-world list0 list0 "" false 30))) #t)
-              
-                        
+; Cannot determine exact output with check-expects due to randomness
+(check-expect (world? (process (make-world list1 list2 "" false 1 10 10))) #t)
+(check-expect (world? (process (make-world list0 list2 "" true 100 10 10))) #t)
+(check-expect (world? (process (make-world list0 list0 "" false 30 0 10))) #t) 
+; bool gen-word? is the one of the two things directly affected by this function and not a helper, in two if cases
+(check-expect (world-gen-word? (process (make-world list0 list0 "" false 30 10 10))) #t)
+(check-expect (world-gen-word? (process (make-world list0 list0 "" false 30 9 10))) #f)
+; The other is the extra credit tick value. This makes the tick rate (tr) in main
+; multiplicative of the lim-tick rate by incrementing here until gte
+(check-expect (world-tick (process (make-world list0 list0 "" false 30 10 10))) 0)
+(check-expect (world-tick (process (make-world list0 list0 "" false 30 9 10))) 10)
+
 (define (process w)
+  (if (>= (world-tick w) (world-lim-tick w))
   (make-world
      (generate-word-maybe
       (lower-words (world-falling-words w) (world-inactive-words w))
       (world-gen-word? w))
      (get-inactives (world-falling-words w) (world-inactive-words w))
      (world-current-word w)
-     (not (world-gen-word? w)) ;flip the bool so we do/dont generate next tick
-     (update-time (world-score w))))
+     (not (world-gen-word? w)) ;flip the bool so we do/dont generate next process tick
+     (update-score (world-score w) (world-lim-tick w))
+     0
+     (world-lim-tick w))
+  (make-world
+     (world-falling-words w)
+     (world-inactive-words w)
+     (world-current-word w)
+     (world-gen-word? w)
+     (world-score w)
+     (+ 1 (world-tick w))
+     (world-lim-tick w))))
 
 
 ; x-range-overlap? Number Number Number Number -> Boolean
@@ -124,6 +145,7 @@
 ; Checks if Word 1 would intersect with inactive Word 2 if moved down
 (check-expect (would-intersect? w1 w2) #f)
 (check-expect (would-intersect? w1 w2) #f)
+(check-expect (would-intersect? w3 (make-word "chip2" (make-posn 24 21))) #t)
 
 (define (would-intersect? w1 w2)
   ;They will intersect if w2's y is the same as w1's y + 1,
@@ -150,12 +172,12 @@
 ; - get-inactives : LoW -> LoW
 ; If inactive, add to list of inactive words
 (check-expect (get-inactives list0 list2) list2)
-(check-expect (get-inactives list1 list2) (cons (make-word "bottom" (make-posn 25 39)) '()))
+(check-expect (get-inactives list1 list2) (cons (make-word "bottom" (make-posn 25 39)) empty))
 (check-expect (get-inactives (list (make-word "hello" (make-posn 12 32))
                                    (make-word "hello1" (make-posn 0 39))
                                    (make-word"hello2" (make-posn 12 0))) 
                               list2)
-              (cons (make-word "hello1" (make-posn 0 39)) (cons (make-word "bottom" (make-posn 25 39)) '())))
+              (cons (make-word "hello1" (make-posn 0 39)) (cons (make-word "bottom" (make-posn 25 39)) empty)))
 
 (define (get-inactives lofw loiw)
   (cond
@@ -188,10 +210,8 @@
                                  (make-word "hello2" (make-posn 15 39))
                                  (make-word "hello3" (make-posn 10 35)))
                            list2) (cons (make-word "hello1" (make-posn 10 11))
-                                        (cons (make-word "hello3" (make-posn 10 36)) '())))
-                                 
-
-
+                                        (cons (make-word "hello3" (make-posn 10 36)) empty)))
+        
 (define (lower-words lofw loiw)
   (cond
     [(empty? lofw) empty]
@@ -228,7 +248,7 @@
 
 (define (randomize-posx w)
   (make-word (word-str w)
-             (make-posn (random (- GRID-WIDTH (string-length (word-str w)))) 0)))
+             (make-posn (random (- (+ 1 GRID-WIDTH) (string-length (word-str w)))) 0)))
 
 ; - generate-word-maybe : LoW Boolean -> LoW
 ; Create new word every other tick (update boolean of World)
@@ -241,13 +261,19 @@
       (cons (randomize-posx (get-new-word DICTIONARY)) low)
       low))
 
-; - update-time: Number -> Number
-;        -Keeping time of game
-(check-expect (update-time 0) 1)
-(check-expect (update-time 100) 101)
+; - update-score: Number Number -> Number
+;        -Keeping score of game
+(check-expect (update-score 0 LIM-TICK-DEFAULT) 1)
+(check-expect (update-score 100 (/ LIM-TICK-DEFAULT 2)) 102)
 
-(define (update-time tick)
-  (+ 1 tick))
+(define (update-score score freq)
+  ; The overall score is time lasted * inverse frequency
+  ; Inverse frequency by default is 1, which we define as the 
+  ; standard every other tick rate. If using the "up" and "down"
+  ; features, the addition to the score will reflect the difficulty
+  ; For example, if default is dropped from 20 to 10, 2 points are 
+  ; added at each process tick, as it is twice as difficult
+  (+ score (/ LIM-TICK-DEFAULT freq)))
 
 ;----------------
 ;to draw:
@@ -363,44 +389,71 @@
 ;       -if enter, delete-word, ( use remove function )
 ;       -if else, do nothing
               ;alphabetic
-(check-expect (update-word (make-world list1 list2 "" false 10) "a")
-              (make-world list1 list2 "a" false 10))
+(check-expect (update-word (make-world list1 list2 "" false 10 0 10) "a")
+              (make-world list1 list2 "a" false 10 0 10))
               ;backspace
-(check-expect (update-word (make-world list1 list2 "test" false 10) "\b")
-              (make-world list1 list2 "tes" false 10))
+(check-expect (update-word (make-world list1 list2 "test" false 10 0 10) "\b")
+              (make-world list1 list2 "tes" false 10 0 10))
               ;enter
-;(check-expect (update-word (make-world list1 list2 "friend" false 10) "\r")
- ;             (make-world (cons w1 (cons w3 '())) (cons w4 '()) "" false 10))
+(check-expect (update-word (make-world list1 list2 "friend" false 10 0 10) "\r")
+              (make-world (cons w1 (cons w3 empty)) (cons w4 empty) "" false 10 0 10))
+              ;down - EX. Cred.
+(check-expect (update-word (make-world list1 list2 "test" false 10 0 10) "down")
+              (make-world list1 list2 "test" false 10 0 9))
+              ;up - EX. Cred.
+(check-expect (update-word (make-world list1 list2 "test" false 10 0 10) "up")
+              (make-world list1 list2 "test" false 10 0 11))
               ;else
-;(check-expect (update-word (make-world list1 list2 "" false 10) "\t")
- ;             (make-world list1 list2 "" false 10))
+(check-expect (update-word (make-world list1 list2 "" false 10 0 10) "\t")
+             (make-world list1 list2 "" false 10 0 10))
 
 (define (update-word w key)
-  (cond [(string-alphabetic? key)
+  (cond [(and (string-alphabetic? key) (= (string-length key) 1))
          (make-world
           (world-falling-words w)
           (world-inactive-words w)
           (string-append (world-current-word w) key)
           (world-gen-word? w)
-          (world-score w))]
+          (world-score w)
+          (world-tick w)
+          (world-lim-tick w))]
         [(key=? key "\b")
          (make-world
           (world-falling-words w)
           (world-inactive-words w)
           (remove-letter (world-current-word w))
           (world-gen-word? w)
-          (world-score w))]
-        [(or (key=? key "\r") (key=? key 'numpad-enter))
+          (world-score w)
+          (world-tick w)
+          (world-lim-tick w))]
+        [(key=? key "\r")
          (make-world
           (remove-word (world-current-word w) (world-falling-words w))
           (world-inactive-words w)
           ""
           (world-gen-word? w)
-          (world-score w))]
-        ; TODO - extra credit - "up" and "down" keys will speed up/down tick rate, which will need to be put in World
-        ; Then big bang on-tick will need to be [on-tick process (world-tick world)]
+          (world-score w)
+          (world-tick w)
+          (world-lim-tick w))]
+        [(key=? key "down")
+          (make-world
+          (world-falling-words w)
+          (world-inactive-words w)
+          (world-current-word w)
+          (world-gen-word? w)
+          (world-score w)
+          (world-tick w)
+          (max 2 (- (world-lim-tick w) 1)))]
+        [(key=? key "up")
+          (make-world
+          (world-falling-words w)
+          (world-inactive-words w)
+          (world-current-word w)
+          (world-gen-word? w)
+          (world-score w)
+          (world-tick w)
+          (+ 1 (world-lim-tick w)))]        
         [else w]))
-; TODO many testssss
 
 ;remove-word : String LoW -> LoW
 ; Removes any word matching the string from the LoW
@@ -436,12 +489,12 @@
                                            (make-word "EndWord1" (make-posn 9 12)))
                                      "test"
                                      false
-                                     1)) #t)
+                                     1 0 10)) #t)
 (check-expect (game-over (make-world (list (make-word "Word1" (make-posn 30 20)))
                                      (list (make-word "EndWord" (make-posn 10 12)))
                                      "test"
                                      false
-                                     1)) #f)
+                                     1 0 10)) #f)
 
 (define (game-over w)
   (check-limit (world-inactive-words w)))
@@ -455,27 +508,15 @@
                                  (make-word "EndWord1" (make-posn 9 12)))) #f)
 (check-expect (check-limit (list (make-word "EndWord" (make-posn 5 12))
                                  (make-word "EndWord1" (make-posn 12 0)))) #t)
-
 (define (check-limit low)
  (cond
     [(empty? low) #f]
     [(cons? low) (or (= 0  (posn-y (word-position (first low))))
                  (check-limit (rest low)))]))
                                                          
-
-; - generate-score: World -> Num
-;    -generates score based on inverse frequency and world-score
-(check-expect (generate-score (make-world list1 list2 "" false 50)) 100)
-(check-expect (generate-score (make-world list1 list2 "" false 100)) 200)
-                               
-(define (generate-score w)
-  (* (/ 1 0.5) (world-score w)))
-
-
-
 ; - last scene: World -> Image
 ;     - outputs the score when the game has ended
-(check-expect (last-scene (make-world list1 list2 "" false 50))
+(check-expect (last-scene (make-world list1 list2 "" false 100 0 10))
               (place-image (text (string-append "Your score is: "
                                                 (number->string 100)) FONT-SIZE TYPING-COLOR)
                            (- SCENE-WIDTH (/ SCENE-WIDTH 2))
@@ -483,15 +524,30 @@
                            SCENE)) 
 (define (last-scene w)
   (place-image (text (string-append "Your score is: "
-                                      (number->string (generate-score w))) FONT-SIZE TYPING-COLOR)
+                                      (number->string (round (world-score w)))) FONT-SIZE TYPING-COLOR)
                                       (- SCENE-WIDTH (/ SCENE-WIDTH 2))
                                       (- SCENE-HEIGHT (/ SCENE-HEIGHT 2))
                                       SCENE))
 
-
-(define (main world tick-rate)
+; play-game: World Number -> World or Image (last-scene is image)
+; Runs the Typaholic! game. Inputted tick rate will be reflected every
+; LIM-TICK-DEFAULT ticks. This is mitigated by running the (main tr) function
+(define (play-game world tr)
   (big-bang world
-            [on-tick process tick-rate]
+            [on-tick process tr]
             [to-draw render-world]
             [on-key update-word]
             [stop-when game-over last-scene]))
+; Cannot test (Big Bang breaks the design recipe)
+; main: Number -> World or Image (last-scene is image)
+; helper function to start the game easier if it helps
+(define (main tr)
+  (play-game (make-world (list) (list) "" false 1 0 LIM-TICK-DEFAULT)
+             (if (>= tr 0.5) (/ tr LIM-TICK-DEFAULT) (/ 0.5 LIM-TICK-DEFAULT))))
+; Cannot test (Big Bang breaks the design recipe)
+; A NOTE ON THE 0.5 tr:
+; The score is not variable by the tick rate, only by the frequency defined by the
+; world-tick and world-lim-tick, so to maintain consistency in the score, the same
+; number should be used here. It's possible to make a really slow number here, and then
+; hit "down" to the max and get a crazy good score, so don't cheat that way.
+(main 0.5)
