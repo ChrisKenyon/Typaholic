@@ -1,6 +1,6 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-beginner-reader.ss" "lang")((modname assignment10) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
+#reader(lib "htdp-beginner-reader.ss" "lang")((modname assignment10) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ())))
 
 
 (require 2htdp/image)
@@ -39,24 +39,24 @@
 ;A List of Words (LoW) is one of:
 ; - empty '()
 ; - cons(Word LoW)
-(define list0 '())
+(define list0 empty)
 (define list1 (list w1 w2 w3))
 (define list2 (list w4))
 
 ;List of words used for generate-word function
-(define DICTIONARY (list (make-word "random" (make-posn 0 0))
-                    (make-word "spaghetti" (make-posn 0 0))
-                    (make-word "generate" (make-posn 0 0))
-                    (make-word "affordable" (make-posn 0 0))
-                    (make-word "dairy" (make-posn 0 0))
-                    (make-word "lamppost" (make-posn 0 0))
-                    (make-word "endurance" (make-posn 0 0))
-                    (make-word "koala" (make-posn 0 0))
-                    (make-word "riesling" (make-posn 0 0))
-                    (make-word "computer" (make-posn 0 0))
-                    (make-word "never" (make-posn 0 0))
-                    (make-word "diabolical" (make-posn 0 0))
-                    (make-word "giraffe" (make-posn 0 0))))
+(define DICTIONARY (list "random"
+                         "spaghetti" 
+                         "generate" 
+                         "affordable"
+                         "dairy"
+                         "lamppost"
+                         "endurance"
+                         "koala"
+                         "riesling"
+                         "computer"
+                         "never"
+                         "diabolical"
+                         "giraffe" ))
                     
 
 
@@ -170,7 +170,7 @@
 
 ; - lower-words : LoW LoW -> LoW
 ; Lower all of the falling worlds by one row, takes lofw and loiw
-(check-expect (lower-words list0 list2) '())
+(check-expect (lower-words list0 list2) empty)
 (check-expect (lower-words list1 list2) (list (make-word "hello" (make-posn 0 1))
                                               (make-word "friend" (make-posn 15 11))
                                               (make-word "chip" (make-posn 25 21))))
@@ -178,41 +178,45 @@
 
 (define (lower-words lofw loiw)
   (cond
-    [(empty? lofw) '()]
+    [(empty? lofw) empty]
     [(cons? lofw) (if (make-inactive? (first lofw) loiw)
                      (lower-words (rest lofw) loiw)
                      (cons (lower-word (first lofw))
                            (lower-words (rest lofw) loiw)))]))
-; TODO tests
+; TODO check-expects
 
-;get-word-at-n : LoW Number -> Word
+;get-word-at-n : LoS Number -> String
 ;   - given a dictionary of words and an index, returns the word at that index
-(define (get-word-at-n low n)
+(define (get-word-at-n los n)
   (cond
-    [(empty? DICTIONARY) ""]
-    [(cons? DICTIONARY) (if (= n 0)
-                            (first DICTIONARY)
-                            (get-word-at-n (rest DICTIONARY) (- n 1)))]))
-
-;get-random-word : LoW -> N
-(define (get-random-word DICTIONARY)
-  (get-word-at-n DICTIONARY (random (length DICTIONARY))))
-
-; - get-new-word : Word -> Word
+    [(empty? los) ""]
+    [(cons? los) (if (= n 0)
+                     (first los)
+                     (get-word-at-n (rest los) (- n 1)))]))
+; TODO check-expects
+  
+; - get-new-word : LoS -> Word
 ;        - Get a random word string
+(define (get-new-word los)
+    (make-word (get-word-at-n los (random (length los)))
+               (make-posn 0 0)))
+; TODO check-expects
+
+; randomize-posx : Word -> Word
+; Takes a new word and updates its x coordinate
 ;        -Should generate a random x less than the (edge-length)
-(define (get-new-word DICTIONARY)
-    (make-word (word-str (get-random-word DICTIONARY))
-               (make-posn (random (- GRID-WIDTH (string-length (word-str (get-random-word DICTIONARY)))))
-                          0)))
+(define (randomize-posx w)
+  (make-word (word-str w)
+             (make-posn (random (- GRID-WIDTH (string-length (word-str w)))) 0)))
+; TODO check-expects
 
 ; - generate-word-maybe : LoW Boolean -> LoW
 ; Create new word every other tick (update boolean of World)
 (define (generate-word-maybe low gen?)
   (if gen?
-      (list (get-new-word low) low)
+      (cons (randomize-posx (get-new-word DICTIONARY)) low)
       low))
-      ; TODO cons with (gen-new-word)
+; TODO check-expects
 
 ; - update-time: Number -> Number
 ;        -Keeping time of game
@@ -360,11 +364,11 @@
 ; Removes any word matching the string from the LoW
 (check-expect (remove-word (word-str w1) list1) (list w2 w3))
 (check-expect (remove-word (word-str w2) list1) (list w1 w3))
-(check-expect (remove-word (word-str w1) list0) '())
+(check-expect (remove-word (word-str w1) list0) empty)
 
 (define (remove-word str low)
   (cond
-    [(empty? low) '()]
+    [(empty? low) empty]
     [(cons? low) (if (string=? str (word-str (first low)))
                      (remove-word str (rest low)) 
                      (cons (first low) (remove-word str (rest low))))]))
