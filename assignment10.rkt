@@ -3,6 +3,7 @@
 #reader(lib "htdp-beginner-reader.ss" "lang")((modname assignment10) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ())))
 
 
+
 (require 2htdp/image)
 (require 2htdp/universe)
 
@@ -75,7 +76,7 @@
 ; - current-word is what the user has typed
 ; - gen-word? is the boolean that tells whether to generate a new word
 ; - score is the number of ticks that have passed
-(define world1 (make-world list1 list2 "test" false 1))
+(define world1 (make-world list1 list2 "" false 1))
 
 #;
 (define (world-tmpl w)
@@ -421,15 +422,30 @@
                  (check-limit (rest low)))]))
                                                          
 
-; - generate-score Num -> Num
-;    -outputs score in last-picture
-;(define (generate-score score)
-  ;(* (/ 1 0.5) score))
+; - generate-score: World -> Num
+;    -generates score based on inverse frequency and world-score
+(check-expect (generate-score (make-world list1 list2 "" false 50)) 100)
+(check-expect (generate-score (make-world list1 list2 "" false 100)) 200)
+                               
+(define (generate-score w)
+  (* (/ 1 0.5) (world-score w)))
 
-;last scene:
-;(define LAST-SCENE (place-image (text (string-append "Your score is: "
- ;                                     (generate-score (world-score world)) FONT-SIZE c)
-  ;                                    (grid-to-pix-x x) (grid-to-pix-y y) SCENE)))
+
+
+; - last scene: World -> Image
+;     - outputs the score when the game has ended
+(check-expect (last-scene (make-world list1 list2 "" false 50))
+              (place-image (text (string-append "Your score is: "
+                                                (number->string 100)) FONT-SIZE TYPING-COLOR)
+                           (- SCENE-WIDTH (/ SCENE-WIDTH 2))
+                           (- SCENE-HEIGHT (/ SCENE-HEIGHT 2))
+                           SCENE)) 
+(define (last-scene w)
+  (place-image (text (string-append "Your score is: "
+                                      (number->string (generate-score w))) FONT-SIZE TYPING-COLOR)
+                                      (- SCENE-WIDTH (/ SCENE-WIDTH 2))
+                                      (- SCENE-HEIGHT (/ SCENE-HEIGHT 2))
+                                      SCENE))
 
 
 (define (main world tick-rate)
@@ -437,4 +453,4 @@
             [on-tick process tick-rate]
             [to-draw render-world]
             [on-key update-word]
-            [stop-when game-over]))
+            [stop-when game-over last-scene]))
